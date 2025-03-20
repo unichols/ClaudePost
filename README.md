@@ -10,7 +10,12 @@ This repository is a modified version of [ClaudePost](https://github.com/ZilongX
 ## Modifications
 
 This version includes the following modifications:
-
+- Increased SEARCH_TIMEOUT from 60 to 120 seconds
+- Decreased MAX_EMAILS from 100 to 20
+- Modified format_email_content() to be more robust:
+  - Improved content extraction for multipart emails
+  - Prioritizes plain text content
+  - Falls back to HTML content if no plain text is found
 
 ## Usage
 
