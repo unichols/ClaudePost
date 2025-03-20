@@ -204,6 +204,10 @@ async def handle_list_tools() -> list[types.Tool]:
                         "description": "Folder to search in ('inbox' or 'sent', defaults to 'inbox')",
                         "enum": ["inbox", "sent"],
                     },
+                    "label": {
+                        "type": "string",
+                        "description": "Gmail label to search within (optional)",
+                    },
                 },
             },
         ),
@@ -237,6 +241,14 @@ async def handle_list_tools() -> list[types.Tool]:
                     },
                 },
                 "required": ["start_date", "end_date"],
+            },
+        ),
+        types.Tool(
+            name="list-labels",
+            description="List all available email labels in your Gmail account",
+            inputSchema={
+                "type": "object",
+                "properties": {},
             },
         ),
         types.Tool(
@@ -326,6 +338,8 @@ async def handle_call_tool(
         if name == "search-emails":
             # 选择文件夹
             folder = arguments.get("folder", "inbox")  # 默认选择收件箱
+            label = arguments.get("label")
+
             if folder == "sent":
                 mail.select('"[Gmail]/Sent Mail"')  # 对于 Gmail
             else:
@@ -360,6 +374,14 @@ async def handle_call_tool(
                 # Calculate next day using the already converted end_date_obj
                 next_day = (end_date_obj + timedelta(days=1)).strftime("%d-%b-%Y")
                 search_criteria = f'SINCE "{start_date}" BEFORE "{next_day}"'
+
+            # Add label filter for Gmail if specified
+            if label:
+                # Use Gmail's X-GM-LABELS search criterion
+                # Note: For this to work, we need to use the Gmail-specific IMAP extensions
+                # Documentation: https://developers.google.com/gmail/imap/imap-extensions
+                logging.debug(f"Adding label filter for: {label}")
+                search_criteria = f'(X-GM-LABELS "{label}" {search_criteria})'
 
             if keyword:
                 # Fix: Properly combine keyword search with date criteria
@@ -457,6 +479,61 @@ async def handle_call_tool(
                 text=result_text
             )]
 
+        elif name == "list-labels":
+            try:
+                logging.debug("Listing available labels")
+                _, labels = mail.list()
+
+                # Process labels to show hierarchy
+                label_dict = {}
+
+                for label in labels:
+                    try:
+                        # Parse the label string
+                        decoded_label = label.decode('utf-8', errors='replace')
+                        logging.debug(f"Raw label: {decoded_label}")
+
+                        # Extract label name - format typically: (\\HasNoChildren) "/" "Label/Sublabel"
+                        parts = decoded_label.split(' "')
+                        if len(parts) > 1:
+                            full_label = parts[-1].strip('"')
+
+                            # Skip Gmail system folders like [Gmail]
+                            if full_label.startswith('[Gmail]'):
+                                continue
+
+                            # Add to our dictionary
+                            label_dict[full_label] = True
+                    except Exception as e:
+                        logging.error(f"Error processing label: {str(e)}")
+                        continue
+
+                # Format the result with hierarchy
+                result_text = "Available Gmail labels:\n\n"
+
+                # Sort labels to group hierarchical labels together
+                sorted_labels = sorted(label_dict.keys())
+
+                # Display labels with proper indentation to show hierarchy
+                for label in sorted_labels:
+                    # Calculate indentation based on path depth
+                    indent = "  " * (label.count('/'))
+
+                    # Get the last part of the path for display
+                    display_name = label.split('/')[-1]
+
+                    result_text += f"{indent}• {display_name} [{label}]\n"
+
+                return [types.TextContent(
+                    type="text",
+                    text=result_text
+                )]
+            except Exception as e:
+                logging.error(f"Error listing labels: {str(e)}")
+                return [types.TextContent(
+                    type="text",
+                    text=f"Error listing labels: {str(e)}"
+                )]
         else:
             raise ValueError(f"Unknown tool: {name}")
 
