@@ -5,7 +5,7 @@ This repository is a modified version of [ClaudePost](https://github.com/ZilongX
 ## Credits
 
 - **Original ClaudePost Authors**: [ZilongXue](https://github.com/ZilongXue) and contributors.
-- **Modified Version Contributors**: [Your Name](https://github.com/unichols).
+- **Modified Version Contributors**: [unichols](https://github.com/unichols).
 
 ## Modifications
 
